@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>น้องวิริน - Chatbot</title>
+    <style>
+        /* General styles */
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f4f6f9;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        #chat-container {
+            background: #ffffff;
+            width: 100%;
+            max-width: 450px;
+            box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
+            border-radius: 10px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            height: 90%;
+        }
+
+        #header {
+            background-color: #0c4ca3;
+            color: white;
+            text-align: center;
+            padding: 15px;
+            font-size: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+        }
+
+        #header img {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+        }
+
+        #chat-box {
+            flex: 1;
+            padding: 15px;
+            overflow-y: auto;
+            background-color: #f9f9f9;
+        }
+
+        .message {
+            margin: 10px 0;
+            max-width: 80%;
+            padding: 10px 15px;
+            border-radius: 15px;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .user {
+            background-color: #007bff;
+            color: white;
+            text-align: right;
+            margin-left: auto;
+            border-bottom-right-radius: 0;
+        }
+
+        .bot {
+            background-color: #e9ecef;
+            color: #333;
+            text-align: left;
+            margin-right: auto;
+            border-bottom-left-radius: 0;
+        }
+
+        #footer {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            padding: 10px;
+            border-top: 1px solid #ddd;
+            background-color: #ffffff;
+        }
+
+        #input-container {
+            display: flex;
+            gap: 10px;
+        }
+
+        #user-input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+
+        #send-button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 5px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        #send-button:hover {
+            background-color: #0056b3;
+        }
+
+        #clear-button {
+            background-color: #7e7c7c;
+            color: white;
+            border: none;
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        #clear-button:hover {
+            background-color: #bb1e1e;
+        }
+    </style>
+</head>
+<body>
+    <div id="chat-container">
+        <!-- Header Section -->
+        <div id="header">
+            <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo">
+            <div>น้องวิริน</div>
+        </div>
+
+        <!-- Chat Box Section -->
+        <div id="chat-box"></div>
+
+        <!-- Footer Section -->
+        <div id="footer">
+            <div id="input-container">
+                <input type="text" id="user-input" placeholder="Type your message..." />
+                <button id="send-button" onclick="sendMessage()">Send</button>
+            </div>
+            <button id="clear-button" onclick="clearChat()">Clear Chat</button>
+        </div>
+    </div>
+
+    <script>
+        const chatBox = document.getElementById('chat-box');
+        const userInput = document.getElementById('user-input');
+
+        // Send Message Function
+        function sendMessage() {
+            const message = userInput.value.trim();
+            if (!message) return;
+
+            // Display user message
+            displayMessage(message, 'user');
+
+            // Add a "typing..." indicator
+            const typingIndicator = document.createElement('div');
+            typingIndicator.className = 'message bot typing';
+            typingIndicator.textContent = '...';
+            chatBox.appendChild(typingIndicator);
+            chatBox.scrollTop = chatBox.scrollHeight;
+
+            // Send message to backend
+            fetch('/chat', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ message })
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Remove the typing indicator
+                chatBox.removeChild(typingIndicator);
+
+                // Display the bot's response
+                displayMessage(data.reply, 'bot');
+            })
+            .catch(err => {
+                // Remove the typing indicator
+                chatBox.removeChild(typingIndicator);
+
+                // Display error message
+                displayMessage("Error connecting to the server.", 'bot');
+            });
+
+            userInput.value = '';  // Clear input
+        }
+
+        // Display Message Function
+        function displayMessage(message, type) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${type}`;
+            
+            // Replace Markdown bold (**text**) with HTML bold (<strong>text</strong>)
+            const formattedMessage = message
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>'); // Replace bold
+
+            // Use innerHTML for rendering HTML tags, and apply CSS for spacing
+            messageDiv.innerHTML = formattedMessage;
+
+            // Preserve whitespace and line breaks
+            messageDiv.style.whiteSpace = "pre-wrap"; 
+            
+            chatBox.appendChild(messageDiv);
+            chatBox.scrollTop = chatBox.scrollHeight;  // Auto-scroll
+        }
+
+        // Clear Chat Function
+        function clearChat() {
+            // Clear the chat box
+            chatBox.innerHTML = '';
+
+            // Reset conversation in backend
+            fetch('/chat/clear', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .catch(err => {
+                displayMessage("Error resetting the chat.", 'bot'); // Handle errors if needed
+            });
+        }
+    </script>
+</body>
+</html>
